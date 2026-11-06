@@ -169,19 +169,24 @@ def _calc_target_size(raw_size: Tuple[int, int], params_size: Optional[Tuple[int
     """根据原始尺寸与请求尺寸算出最终缩放尺寸，支持等比例。"""
     if params_size is None or params_size == (0, 0):
         return raw_size
-    
+
     width, height = params_size
     #严格模式，且尺寸有效，直接返回该尺寸
     if strict_mode and width > 0 and height > 0:
         return width, height
-    
+
     #取宽或者高作为缩放比例，宽优先
     raw_w, raw_h = raw_size
     if width > 0 and height > 0:
         if width < raw_w:
             height = 0
-        else:
+        elif height < raw_h:
             width = 0
+
+    if width > 0 and width >= raw_w:
+        return raw_w, raw_h
+    if height > 0 and height >= raw_h:
+        return raw_w, raw_h
     #下面计算比例
     if width == 0:
         return int(raw_w * (height / raw_h)), height
@@ -195,6 +200,9 @@ def _resize_animated(img: ImageFile, target_size: Tuple[int, int], get_frame: in
     loop = int(img.info.get("loop", 0))
     duration = int(img.info.get("duration", 0))
     debugLog("animated resize:", n_frames=n_frames, loop=loop, duration=duration, get_frame=get_frame)
+
+    if get_frame >= n_frames and target_size[0] == img.size[0] and target_size[1] == img.size[1]:
+        return img.tobytes()
 
     if get_frame <= 0 or get_frame >= n_frames:
         # 全部保留
