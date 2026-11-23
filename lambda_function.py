@@ -214,10 +214,11 @@ def _resize_animated(img: ImageFile, target_size: Tuple[int, int], get_frame: in
         step = max(1, n_frames / get_frame)
         pick_indices = [min(int(round(i * step)), n_frames - 1) for i in range(get_frame)]
 
+    resample = Image.LANCZOS if hasattr(Image, "LANCZOS") else Image.ANTIALIAS
     frames = []
     for idx in pick_indices:
         img.seek(idx)
-        frames.append(img.resize(target_size))
+        frames.append(img.resize(target_size, resample=resample))
 
     base = frames[0].copy()
     buffer = BytesIO()
@@ -241,10 +242,15 @@ def resize_image(img: ImageFile, params: dict) -> BytesIO:
     if fmt in ANIMATED_FORMATS:
         return _resize_animated(img, target_size, get_frame)
 
+    resample = Image.LANCZOS if hasattr(Image, "LANCZOS") else Image.ANTIALIAS
     buffer = BytesIO()
     # 用上面 L197 已经算好的 fmt（已做 None 防护 + .lower()），
     # 不要直接 img.format.lower() — Image.new() 创建的图片 img.format 是 None
-    img.resize(target_size).save(buffer, format=fmt or "PNG", mode=img.mode)
+    out = img.resize(target_size, resample=resample)
+    save_kwargs = {}
+    if fmt in ("jpeg", "jpg"):
+        save_kwargs.update(quality=92, optimize=True)
+    out.save(buffer, format=fmt or "PNG", mode=out.mode, **save_kwargs)
     return buffer
 
 """
